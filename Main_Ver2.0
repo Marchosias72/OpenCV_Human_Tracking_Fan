@@ -1,0 +1,118 @@
+# 2022/6/18 produced by JunWoo LEE. This code is activated by python for raspberrypi.
+
+
+from picamera.array import PiRGBArray as pra
+from picamera import PiCamera
+import cv2
+import numpy as np
+import time
+import Adafruit_PCA9685
+
+def constrain(inv,minv,maxv):
+    if inv<minv:
+        return minv
+
+    elif maxv<inv:
+        return maxv
+
+    else:
+        return inv
+
+
+
+pwm=Adafruit_PCA9685.PCA9685()
+pwm.set_pwm_freq(51)
+
+faceCascade = cv2.CascadeClassifier('haarcascade_frontalface_default.xml')
+cam=PiCamera()
+cam.hflip=True
+cam.resolution=(320,240)
+cam.framerate=32
+cam.rotation=180
+raw=pra(cam,size=(320,240))
+
+sx=375
+syo=150
+syt=600
+
+pwm.set_pwm(0,0,sx)
+pwm.set_pwm(1,0,syo)
+#pwm.set_pwm(2,0,syt)
+time.sleep(1)
+
+for frame in cam.capture_continuous(raw,format='bgr',use_video_port=True):
+    video=frame.array
+    video=cv2.cvtColor(video, cv2.COLOR_BGR2GRAY)
+    faces = faceCascade.detectMultiScale(video, scaleFactor=1.2, minNeighbors=5, minSize=(20, 20))
+
+    for (x,y,w,h) in faces:
+        cv2.rectangle(video,(x,y),(x+w,y+h),(255,0,0),2)
+        cx=int(x+w/2)
+        cy=int(y+h/2)
+        roi_gray = video[y:y+h, x:x+w]
+        roi_color = video[y:y+h, x:x+w]
+        cv2.line(video,(cx,cy),(cx,cy),(0,0,255),3)
+        print('(%d,%d)'%(cx,cy))
+
+        if cx<160:
+            if cy<120:
+                sx-=5
+                syo-=5
+                pwm.set_pwm(0,0,constrain(sx,150,600))
+                pwm.set_pwm(1,0,constrain(syo,150,375))
+                time.sleep(0.01)
+            elif cy>120:
+                sx-=5
+                syo+=5
+                pwm.set_pwm(0,0,constrain(sx,150,600))
+                pwm.set_pwm(1,0,constrain(syo,150,375))
+                time.sleep(0.01)
+            else:
+                pass
+
+        elif cx>160:
+            if cy<120:
+                sx+=5
+                syo+=5
+                pwm.set_pwm(0,0,constrain(sx,150,600))
+                pwm.set_pwm(1,0,constrain(syo,150,375))
+                time.sleep(0.01)
+            elif cy>120:
+                sx+=5
+                syo-=5
+                pwm.set_pwm(0,0,constrain(sx,150,600))
+                pwm.set_pwm(1,0,constrain(syo,150,375))
+                time.sleep(0.01)
+            else:
+                pass
+        else:
+            pwm.set_pwm(0,0,sx)
+            pwm.set_pwm(1,0,syo)
+            pass
+
+    print(cv2.CAP_PROP_FPS)
+    cv2.imshow('frame',video)
+    key=cv2.waitKey(1)&0xFF
+
+    raw.truncate(0)
+
+    if key==27:
+        pwm.set_pwm(0,0,sx)
+        pwm.set_pwm(1,0,syo)
+        #pwm.set_pwm(2,0,syt)
+        time.sleep(1)
+        break
+Footer
+© 2022 GitHub, Inc.
+Footer navigation
+Terms
+Privacy
+Security
+Status
+Docs
+Contact GitHub
+Pricing
+API
+Training
+Blog
+About
